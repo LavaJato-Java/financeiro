@@ -1,21 +1,32 @@
 package com.example.lavajato.financeiro.services;
 
+import com.example.lavajato.financeiro.client.EstoqueClient;
+import com.example.lavajato.financeiro.client.payload.request.EstoqueRequest;
 import com.example.lavajato.financeiro.entities.*;
 import com.example.lavajato.financeiro.payloads.request.*;
+import com.example.lavajato.financeiro.queue.in.PagamentoFornecedorMessageConsumer;
 import com.example.lavajato.financeiro.repositories.PagamentoFuncionarioRepository;
 import com.example.lavajato.financeiro.repositories.PagamentoServicoRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.time.StopWatch;
 import org.springframework.beans.BeanUtils;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import com.example.lavajato.financeiro.repositories.PagamentoRepository;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SalvarPagamentoService {
+
+    private final EstoqueClient estoqueClient;
+
+    private final PagamentoFornecedorMessageConsumer pagamentoFornecedorMessageConsumer;
 
     private final RetrieveOrCreateProdutoService retrieveOrCreateProdutoService;
 
@@ -32,6 +43,8 @@ public class SalvarPagamentoService {
 
     @CacheEvict(cacheNames = "rlfornecedor", allEntries = true)
     public void execute(PagamentoFornecedorRequest pagamentoFornecedorRequest){
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         Fornecedor fornecedor = new Fornecedor();
         BeanUtils.copyProperties(pagamentoFornecedorRequest.getFornecedor(),fornecedor);
         List<Item> items = pagamentoFornecedorRequest.getItems().stream().map(this::getItems)
@@ -42,7 +55,10 @@ public class SalvarPagamentoService {
         Pagamento pagamento = new Pagamento();
         pagamento.setFornecedor(fornecedorSaved);
         pagamento.adicionarItems(items);
+        enviarSolicitacaoAoEstoque(fornecedor, items);
         pagamentoRepository.save(pagamento);
+        stopWatch.stop();
+        log.info("Tempo de execução {} ms", stopWatch.getTime(TimeUnit.MILLISECONDS));
     }
 
     private Item getItems(ItemRequest itemRequest) {
@@ -56,6 +72,8 @@ public class SalvarPagamentoService {
 
     @CacheEvict(cacheNames = "rlfuncionario", allEntries = true)
     public void executeFuncionario(PagamentoFuncionarioRequest pagamentoFuncionarioRequest){
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         Funcionario funcionario = new Funcionario();
         BeanUtils.copyProperties(pagamentoFuncionarioRequest.getFuncionario(),funcionario);
         Double salario = pagamentoFuncionarioRequest.getSalario();
@@ -65,10 +83,14 @@ public class SalvarPagamentoService {
         PagamentoFuncionario pagamentoFuncionario = new PagamentoFuncionario();
         pagamentoFuncionario.setFuncionario(funcionarioSaved);
         pagamentoFuncionarioRepository.save(pagamentoFuncionario);
+        stopWatch.stop();
+        log.info("Tempo de execução {} ms", stopWatch.getTime(TimeUnit.MILLISECONDS));
     }
 
     @CacheEvict(cacheNames = "rlservico", allEntries = true)
     public void executeServico(PagamentoServicoRequest pagamentoServicoRequest){
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
         Servico servico = new Servico();
         BeanUtils.copyProperties(pagamentoServicoRequest.getServico(),servico);
 
@@ -86,6 +108,8 @@ public class SalvarPagamentoService {
         pagamentoServico.setCliente(clienteSaved);
         pagamentoServico.adicionarItemsServico(itemsServico);
         pagamentoServicoRepository.save(pagamentoServico);
+        stopWatch.stop();
+        log.info("Tempo de execução {} ms", stopWatch.getTime(TimeUnit.MILLISECONDS));
     }
 
     private ItemServico getItemsServico(ItemServicoRequest itemServicoRequest) {
@@ -96,4 +120,19 @@ public class SalvarPagamentoService {
         itemServico.setServico(retrieveOrCreateServicoService.execute(servico));
         return itemServico;
     }
+
+    private void enviarSolicitacaoAoEstoque(Fornecedor fornecedor, List<Item> items) {
+
+        for (Item item: items) {
+            EstoqueRequest estoqueRequest = new EstoqueRequest();
+            estoqueRequest.setId(item.getProduto().getId());
+            estoqueRequest.setMarca(item.getProduto().getNome());
+            estoqueRequest.setNome(item.getProduto().getNome());
+            estoqueRequest.setQuantidadeAdicionada(item.getQuantidade());
+            estoqueClient.solicitarCadastroEstoque(estoqueRequest);
+        }
+
+    }
+
+
 }
