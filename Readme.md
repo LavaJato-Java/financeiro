@@ -1,4 +1,4 @@
-#LavaJata Application - Microservice Financeiro
+# LavaJata Application - Microservice Financeiro
 
 Microserviço que realiza: 
 
@@ -17,3 +17,92 @@ Microserviço usando:
 . usando Redis para Cache
 
 . usando Padrão Saga Coreografado para conexão com os outros microserviços.
+
+## Endpoints
+
+### POST /pagamento/fornecedor
+
+Request 
+```java
+{
+	String id;
+	int quantidade;
+	Double preco; 
+        Produto : { 
+              String id;
+              String nome;
+          };
+	Fornecedor : {
+		            String razaoSocial;
+		            String cnpj;
+                  };
+}
+```
+
+Response : void
+
+
+### POST /pagamento/funcionario
+
+Request 
+```java
+{
+	Double salario; 
+	Funcionario : {
+		            String nome;
+		            String cpf;
+                  };
+}
+```
+
+Response : void
+
+
+### POST /pagamento/servico
+
+Request 
+```java
+{
+  Servico : { 
+              String id;
+              String tipo_servico;
+          };
+  Cliente : {
+            String nome;
+            String cpf;
+                  };
+  List<ItemServico>: [
+                  {
+                        int quantidade;
+                        Double preco;
+                        Serviço: {
+                          String id;
+                          String tipo_servico;
+                        }
+                  },
+    ];
+}
+```
+
+Response : void
+
+### GET /pagamento/relatorio/{idFornecedor}
+
+Response 
+```java
+{
+	UUID idFornecedor;
+	double valorTotalFornecedor;
+  }
+```
+
+
+### GET /realizarpedido/relatorio/{idServico}
+
+Response 
+```java
+{
+	UUID idServiço;
+	double valorTotalServiço;
+  }
+```
