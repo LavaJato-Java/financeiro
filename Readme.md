@@ -9,3 +9,11 @@ e ainda enviando uma request para o microserviço de Estoque para salvar o Produ
 
 . Pagamento de um Serviço, recebendo a solicitação do microserviço de Serviços do Lavajato, e efetuando o pagamento,
 vinculado a um cliente, que é tbm é adicionado ao Banco de Dados.
+
+Microserviço usando:
+
+. usando serviço de mensageria.
+
+. usando Redis para Cache
+
+. usando Padrão Saga Coreografado para conexão com os outros microserviços.
